@@ -414,10 +414,10 @@ type predictedLatencyCtx struct {
 	requestsAtDispatchOnPrefill int
 
 	topologyDistance       string
-	topologyAffinityScore float64
-	peerTopologyKnown     bool
+	topologyAffinityScore  float64
+	peerTopologyKnown      bool
 	candidateTopologyKnown bool
-	requestID             string
+	requestID              string
 }
 
 func newPredictedLatencyContext(request *fwksched.InferenceRequest) *predictedLatencyCtx {
