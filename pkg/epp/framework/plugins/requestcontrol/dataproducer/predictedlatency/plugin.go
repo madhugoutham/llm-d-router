@@ -43,6 +43,7 @@ import (
 	attrlatency "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/datalayer/attribute/latency"
 	attrmm "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/datalayer/attribute/multimodal"
 	attrprefix "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/datalayer/attribute/prefix"
+	attrtopology "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/datalayer/attribute/topology"
 	latencyproducerconstants "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/requestcontrol/dataproducer/predictedlatency/constants"
 	"github.com/llm-d/llm-d-router/pkg/epp/metadata"
 )
@@ -79,6 +80,7 @@ type PredictedLatency struct {
 	inFlightLoadDataKey          plugin.DataKey
 	encoderCacheDataKey          plugin.DataKey
 	latencyPredictionInfoDataKey plugin.DataKey
+	topologyDataKey              plugin.DataKey
 }
 
 // endpointInFlightLoad reads the InFlightLoad attribute published by the
@@ -246,6 +248,9 @@ type Config struct {
 	// load to read for the prefill-tokens-in-flight and active-request-count
 	// features. Empty defaults to the auto-created producer.
 	InFlightLoadProducerName string `json:"inFlightLoadProducerName,omitempty"`
+	// TopologyProducerName selects which topology-extractor instance's topology
+	// data to read. Empty uses the default topology-extractor instance.
+	TopologyProducerName string `json:"topologyProducerName,omitempty"`
 	// UseEncoderCacheFeatures enables the multimodal encoder-cache features
 	// (encoder_input_size, encoder_matched_size). When true, the multimodal
 	// encoder-cache match data is consumed as a required dependency, so a
@@ -319,6 +324,7 @@ func NewPredictedLatency(name string, config Config, predictor latencypredictor.
 		inFlightLoadDataKey:          attrconcurrency.InFlightLoadDataKey.WithNonEmptyProducerName(config.InFlightLoadProducerName),
 		encoderCacheDataKey:          attrmm.EncoderCacheMatchInfoKey.WithNonEmptyProducerName(config.EncoderCacheMatchInfoProducerName),
 		latencyPredictionInfoDataKey: attrlatency.LatencyPredictionInfoDataKey.WithNonEmptyProducerName(name),
+		topologyDataKey:              attrtopology.TopologyAttributeKey.WithNonEmptyProducerName(config.TopologyProducerName),
 	}
 
 	predictedLatency.sloContextStore = ttlcache.New(

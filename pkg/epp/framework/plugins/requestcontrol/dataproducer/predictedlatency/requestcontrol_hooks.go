@@ -119,22 +119,28 @@ func (pl *PredictedLatency) PreRequest(ctx context.Context, request *fwksched.In
 	}
 	predictedLatencyCtx.decodeTokensAtDispatch = 0
 
-	// Stamp selected-pair topology for training entries. The topology
-	// extractor's DataKey is instance-scoped; we try the default name first.
+	// Stamp selected-pair topology for training entries.
 	predictedLatencyCtx.requestID = id
-	topoKey := attrtopology.TopologyAttributeKey.WithNonEmptyProducerName(attrtopology.TopologyExtractorType)
-	decodeTopo, decodeHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](decodeEndpoint, topoKey)
+	decodeTopo, decodeHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](decodeEndpoint, pl.topologyDataKey)
 	predictedLatencyCtx.peerTopologyKnown = decodeHasTopo
 	if prefillEndpoint != nil {
-		prefillTopo, prefillHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](prefillEndpoint, topoKey)
+		prefillTopo, prefillHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](prefillEndpoint, pl.topologyDataKey)
 		predictedLatencyCtx.candidateTopologyKnown = prefillHasTopo
-		level := topoutil.Compare(decodeTopo, prefillTopo)
-		predictedLatencyCtx.topologyDistance = level.String()
-		predictedLatencyCtx.topologyAffinityScore = topologyLevelScore(level)
+		predictedLatencyCtx.topologyDistance, predictedLatencyCtx.topologyAffinityScore = topologyDistanceAndScore(
+			decodeTopo, prefillTopo, decodeHasTopo, prefillHasTopo,
+		)
 	}
 
 	processPreRequestForLatencyPrediction(ctx, predictedLatencyCtx)
 	return nil
+}
+
+func topologyDistanceAndScore(peer, candidate *attrtopology.Topology, peerKnown, candidateKnown bool) (string, float64) {
+	if !peerKnown || !candidateKnown {
+		return "unknown", 0
+	}
+	level := topoutil.Compare(peer, candidate)
+	return level.String(), topologyLevelScore(level)
 }
 
 // topologyLevelScore maps a topology level to the same affinity score the
