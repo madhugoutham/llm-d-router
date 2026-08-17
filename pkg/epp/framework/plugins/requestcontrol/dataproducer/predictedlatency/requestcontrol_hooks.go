@@ -31,6 +31,8 @@ import (
 	fwkdl "github.com/llm-d/llm-d-router/pkg/epp/framework/interface/datalayer"
 	"github.com/llm-d/llm-d-router/pkg/epp/framework/interface/requestcontrol"
 	fwksched "github.com/llm-d/llm-d-router/pkg/epp/framework/interface/scheduling"
+	attrtopology "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/datalayer/attribute/topology"
+	topoutil "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/scheduling/util/topology"
 )
 
 var _ requestcontrol.PreRequest = &PredictedLatency{}
@@ -117,8 +119,39 @@ func (pl *PredictedLatency) PreRequest(ctx context.Context, request *fwksched.In
 	}
 	predictedLatencyCtx.decodeTokensAtDispatch = 0
 
+	// Stamp selected-pair topology for training entries. The topology
+	// extractor's DataKey is instance-scoped; we try the default name first.
+	predictedLatencyCtx.requestID = id
+	topoKey := attrtopology.TopologyAttributeKey.WithNonEmptyProducerName(attrtopology.TopologyExtractorType)
+	decodeTopo, decodeHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](decodeEndpoint, topoKey)
+	predictedLatencyCtx.peerTopologyKnown = decodeHasTopo
+	if prefillEndpoint != nil {
+		prefillTopo, prefillHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](prefillEndpoint, topoKey)
+		predictedLatencyCtx.candidateTopologyKnown = prefillHasTopo
+		level := topoutil.Compare(decodeTopo, prefillTopo)
+		predictedLatencyCtx.topologyDistance = level.String()
+		predictedLatencyCtx.topologyAffinityScore = topologyLevelScore(level)
+	}
+
 	processPreRequestForLatencyPrediction(ctx, predictedLatencyCtx)
 	return nil
+}
+
+// topologyLevelScore maps a topology level to the same affinity score the
+// topology-affinity-scorer uses, without importing the scorer package.
+func topologyLevelScore(level topoutil.Level) float64 {
+	switch level {
+	case topoutil.LevelHost:
+		return 1.00
+	case topoutil.LevelRack:
+		return 0.20
+	case topoutil.LevelZone:
+		return 0.05
+	case topoutil.LevelRegion:
+		return 0.02
+	default:
+		return 0.00
+	}
 }
 
 func (pl *PredictedLatency) ResponseHeader(ctx context.Context, request *fwksched.InferenceRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {
@@ -201,6 +234,7 @@ func (pl *PredictedLatency) ResponseBody(ctx context.Context, request *fwksched.
 				entry.PrefillTokensInFlight = predictedLatencyCtx.prefillTokensAtDispatch
 				entry.DecodeTokensInFlight = predictedLatencyCtx.decodeTokensAtDispatch
 				entry.NumRequestRunning = predictedLatencyCtx.requestsAtDispatch
+				stampTopologyOnEntry(&entry, predictedLatencyCtx)
 				if err := pl.latencypredictor.AddTrainingDataBulk([]latencypredictor.TrainingEntry{entry}); err != nil {
 					logger.V(logutil.DEBUG).Error(err, "record TPOT training failed")
 				}

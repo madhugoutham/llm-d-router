@@ -130,8 +130,22 @@ func recordTTFTTrainingData(
 		entry.NumRequestRunning = predictedLatencyCtx.requestsAtDispatch
 	}
 	entry.DecodeTokensInFlight = predictedLatencyCtx.decodeTokensAtDispatch
+	stampTopologyOnEntry(&entry, predictedLatencyCtx)
 	if err := predictor.AddTrainingDataBulk([]latencypredictor.TrainingEntry{entry}); err != nil {
 		logger.V(logutil.DEBUG).Error(err, "record TTFT training failed")
+	}
+}
+
+// stampTopologyOnEntry copies the selected-pair topology from the per-request
+// context onto the training entry. For monolithic serving (no prefill target)
+// the fields stay at their zero/omitted values.
+func stampTopologyOnEntry(entry *latencypredictor.TrainingEntry, plCtx *predictedLatencyCtx) {
+	entry.RequestID = plCtx.requestID
+	if plCtx.topologyDistance != "" {
+		entry.TopologyDistance = plCtx.topologyDistance
+		entry.TopologyAffinityScore = plCtx.topologyAffinityScore
+		entry.PeerTopologyKnown = &plCtx.peerTopologyKnown
+		entry.CandidateTopologyKnown = &plCtx.candidateTopologyKnown
 	}
 }
 

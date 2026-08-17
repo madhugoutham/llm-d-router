@@ -179,6 +179,15 @@ type TrainingEntry struct {
 	PrefillTokensInFlight int64     `json:"prefill_tokens_in_flight"`
 	DecodeTokensInFlight  int64     `json:"decode_tokens_in_flight"`
 	Timestamp             time.Time `json:"timestamp"`
+	// TopologyDistance is the tightest topology tier shared by the selected
+	// prefill and decode endpoints: "host", "rack", "zone", "region", "none",
+	// or "unknown" when either endpoint's topology is absent. Empty for
+	// monolithic serving.
+	TopologyDistance       string  `json:"topology_distance,omitempty"`
+	TopologyAffinityScore float64 `json:"topology_affinity_score,omitempty"`
+	PeerTopologyKnown     *bool   `json:"peer_topology_known,omitempty"`
+	CandidateTopologyKnown *bool  `json:"candidate_topology_known,omitempty"`
+	RequestID             string  `json:"request_id,omitempty"`
 }
 
 type BulkTrainingRequest struct {
