@@ -24,29 +24,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTopologyDistanceAndScore(t *testing.T) {
+func TestTopologyDistance(t *testing.T) {
 	peer := &attrtopology.Topology{Hostname: "host-a", Rack: "rack-a", Zone: "zone-a", Region: "region-a"}
 	candidate := &attrtopology.Topology{Hostname: "host-a", Rack: "rack-a", Zone: "zone-a", Region: "region-a"}
 
-	distance, score := topologyDistanceAndScore(peer, candidate, true, true)
-	require.Equal(t, "host", distance)
-	require.Equal(t, 1.0, score)
+	require.Equal(t, "host", topologyDistance(peer, candidate, true, true))
 
-	distance, score = topologyDistanceAndScore(nil, candidate, false, true)
-	require.Equal(t, "unknown", distance)
-	require.Zero(t, score)
+	require.Equal(t, "unknown", topologyDistance(nil, candidate, false, true))
 
 	other := &attrtopology.Topology{Hostname: "host-b", Rack: "rack-b", Zone: "zone-b", Region: "region-b"}
-	distance, score = topologyDistanceAndScore(peer, other, true, true)
-	require.Equal(t, "none", distance)
-	require.Zero(t, score)
+	require.Equal(t, "none", topologyDistance(peer, other, true, true))
 }
 
 func TestStampTopologyOnEntry(t *testing.T) {
 	peerKnown, candidateKnown := true, true
 	ctx := &predictedLatencyCtx{
 		topologyDistance:       "rack",
-		topologyAffinityScore:  0.2,
 		peerTopologyKnown:      peerKnown,
 		candidateTopologyKnown: candidateKnown,
 		requestID:              "request-1",
@@ -57,7 +50,6 @@ func TestStampTopologyOnEntry(t *testing.T) {
 
 	require.Equal(t, "request-1", entry.RequestID)
 	require.Equal(t, "rack", entry.TopologyDistance)
-	require.Equal(t, 0.2, entry.TopologyAffinityScore)
 	require.NotNil(t, entry.PeerTopologyKnown)
 	require.NotNil(t, entry.CandidateTopologyKnown)
 	require.True(t, *entry.PeerTopologyKnown)

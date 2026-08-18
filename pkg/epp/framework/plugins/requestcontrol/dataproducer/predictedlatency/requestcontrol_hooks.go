@@ -126,7 +126,7 @@ func (pl *PredictedLatency) PreRequest(ctx context.Context, request *fwksched.In
 	if prefillEndpoint != nil {
 		prefillTopo, prefillHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](prefillEndpoint, pl.topologyDataKey)
 		predictedLatencyCtx.candidateTopologyKnown = prefillHasTopo
-		predictedLatencyCtx.topologyDistance, predictedLatencyCtx.topologyAffinityScore = topologyDistanceAndScore(
+		predictedLatencyCtx.topologyDistance = topologyDistance(
 			decodeTopo, prefillTopo, decodeHasTopo, prefillHasTopo,
 		)
 	}
@@ -135,29 +135,11 @@ func (pl *PredictedLatency) PreRequest(ctx context.Context, request *fwksched.In
 	return nil
 }
 
-func topologyDistanceAndScore(peer, candidate *attrtopology.Topology, peerKnown, candidateKnown bool) (string, float64) {
+func topologyDistance(peer, candidate *attrtopology.Topology, peerKnown, candidateKnown bool) string {
 	if !peerKnown || !candidateKnown {
-		return "unknown", 0
+		return "unknown"
 	}
-	level := topoutil.Compare(peer, candidate)
-	return level.String(), topologyLevelScore(level)
-}
-
-// topologyLevelScore maps a topology level to the same affinity score the
-// topology-affinity-scorer uses, without importing the scorer package.
-func topologyLevelScore(level topoutil.Level) float64 {
-	switch level {
-	case topoutil.LevelHost:
-		return 1.00
-	case topoutil.LevelRack:
-		return 0.20
-	case topoutil.LevelZone:
-		return 0.05
-	case topoutil.LevelRegion:
-		return 0.02
-	default:
-		return 0.00
-	}
+	return topoutil.Compare(peer, candidate).String()
 }
 
 func (pl *PredictedLatency) ResponseHeader(ctx context.Context, request *fwksched.InferenceRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {

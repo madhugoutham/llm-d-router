@@ -143,7 +143,6 @@ func stampTopologyOnEntry(entry *latencypredictor.TrainingEntry, plCtx *predicte
 	entry.RequestID = plCtx.requestID
 	if plCtx.topologyDistance != "" {
 		entry.TopologyDistance = plCtx.topologyDistance
-		entry.TopologyAffinityScore = plCtx.topologyAffinityScore
 		entry.PeerTopologyKnown = &plCtx.peerTopologyKnown
 		entry.CandidateTopologyKnown = &plCtx.candidateTopologyKnown
 	}
