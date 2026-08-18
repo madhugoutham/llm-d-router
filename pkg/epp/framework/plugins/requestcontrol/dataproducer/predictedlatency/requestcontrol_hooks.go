@@ -31,6 +31,8 @@ import (
 	fwkdl "github.com/llm-d/llm-d-router/pkg/epp/framework/interface/datalayer"
 	"github.com/llm-d/llm-d-router/pkg/epp/framework/interface/requestcontrol"
 	fwksched "github.com/llm-d/llm-d-router/pkg/epp/framework/interface/scheduling"
+	attrtopology "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/datalayer/attribute/topology"
+	topoutil "github.com/llm-d/llm-d-router/pkg/epp/framework/plugins/scheduling/util/topology"
 )
 
 var _ requestcontrol.PreRequest = &PredictedLatency{}
@@ -117,8 +119,27 @@ func (pl *PredictedLatency) PreRequest(ctx context.Context, request *fwksched.In
 	}
 	predictedLatencyCtx.decodeTokensAtDispatch = 0
 
+	// Stamp selected-pair topology for training entries.
+	predictedLatencyCtx.requestID = id
+	decodeTopo, decodeHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](decodeEndpoint, pl.topologyDataKey)
+	predictedLatencyCtx.peerTopologyKnown = decodeHasTopo
+	if prefillEndpoint != nil {
+		prefillTopo, prefillHasTopo := fwkdl.ReadAttribute[*attrtopology.Topology](prefillEndpoint, pl.topologyDataKey)
+		predictedLatencyCtx.candidateTopologyKnown = prefillHasTopo
+		predictedLatencyCtx.topologyDistance = topologyDistance(
+			decodeTopo, prefillTopo, decodeHasTopo, prefillHasTopo,
+		)
+	}
+
 	processPreRequestForLatencyPrediction(ctx, predictedLatencyCtx)
 	return nil
+}
+
+func topologyDistance(peer, candidate *attrtopology.Topology, peerKnown, candidateKnown bool) string {
+	if !peerKnown || !candidateKnown {
+		return "unknown"
+	}
+	return topoutil.Compare(peer, candidate).String()
 }
 
 func (pl *PredictedLatency) ResponseHeader(ctx context.Context, request *fwksched.InferenceRequest, response *requestcontrol.Response, targetMetadata *fwkdl.EndpointMetadata) {
@@ -201,6 +222,7 @@ func (pl *PredictedLatency) ResponseBody(ctx context.Context, request *fwksched.
 				entry.PrefillTokensInFlight = predictedLatencyCtx.prefillTokensAtDispatch
 				entry.DecodeTokensInFlight = predictedLatencyCtx.decodeTokensAtDispatch
 				entry.NumRequestRunning = predictedLatencyCtx.requestsAtDispatch
+				stampTopologyOnEntry(&entry, predictedLatencyCtx)
 				if err := pl.latencypredictor.AddTrainingDataBulk([]latencypredictor.TrainingEntry{entry}); err != nil {
 					logger.V(logutil.DEBUG).Error(err, "record TPOT training failed")
 				}
