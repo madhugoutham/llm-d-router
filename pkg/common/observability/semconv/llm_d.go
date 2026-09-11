@@ -87,6 +87,13 @@ const (
 	LLMDKVCacheTokenCountKey = attribute.Key("llm_d.kv_cache.token_count")
 	// LLMDKVCacheBlockKeysCountKey is the attribute key for KV cache block keys count.
 	LLMDKVCacheBlockKeysCountKey = attribute.Key("llm_d.kv_cache.block_keys.count")
+
+	// LLMDRequestAttributionIDKey is the resolved request attribution identity.
+	// Always paired with LLMDRequestAttributionSourceKey.
+	LLMDRequestAttributionIDKey = attribute.Key("llm_d.epp.tenant_id")
+	// LLMDRequestAttributionSourceKey is which branch resolved the identity.
+	// "header" is never evidence that the producer was authenticated.
+	LLMDRequestAttributionSourceKey = attribute.Key("llm_d.epp.tenant_id.source")
 )
 
 // Typed helper functions for llm-d internal attributes.
@@ -239,4 +246,14 @@ func LLMDKVCacheTokenCount(count int) attribute.KeyValue {
 // LLMDKVCacheBlockKeysCount returns an attribute for KV cache block keys count.
 func LLMDKVCacheBlockKeysCount(count int) attribute.KeyValue {
 	return LLMDKVCacheBlockKeysCountKey.Int(count)
+}
+
+// LLMDRequestAttributionID returns an attribute for the resolved request attribution identity.
+func LLMDRequestAttributionID(id string) attribute.KeyValue {
+	return LLMDRequestAttributionIDKey.String(id)
+}
+
+// LLMDRequestAttributionSource returns an attribute for how the attribution identity was resolved.
+func LLMDRequestAttributionSource(source string) attribute.KeyValue {
+	return LLMDRequestAttributionSourceKey.String(source)
 }
